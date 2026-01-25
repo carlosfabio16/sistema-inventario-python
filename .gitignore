@@ -1,0 +1,15 @@
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Base de datos (No la subiremos para no exponer datos reales o de prueba)
+*.db
+*.sqlite3
+
+# Entornos virtuales
+venv/
+env/
+.env
+
+# Archivos del sistema operativo
+.DS_Store
