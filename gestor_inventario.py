@@ -72,3 +72,29 @@ if __name__ == "__main__":
     producto = buscar_producto("784001")
     if producto:
         print(f"Prueba 3: Datos recuperados -> {producto['nombre']} | Precio: {producto['precio']} | Stock: {producto['stock']}")
+        
+def actualizar_stock(codigo, cantidad_entrada):
+    """
+    Suma una cantidad al stock actual de un producto existente.
+    
+    Args:
+        codigo (str): El identificador del producto.
+        cantidad_entrada (int): Cuánto queremos sumar.
+        
+    Returns:
+        int: El nuevo stock total.
+        None: Si el código no existía.
+    """
+    if codigo in inventario_global:
+        # 1. Obtenemos el valor actual
+        stock_actual = inventario_global[codigo]["stock"]
+        
+        # 2. Calculamos el nuevo total
+        nuevo_stock = stock_actual + cantidad_entrada
+        
+        # 3. Guardamos el cambio en la memoria
+        inventario_global[codigo]["stock"] = nuevo_stock
+        
+        return nuevo_stock
+    else:
+        return None
