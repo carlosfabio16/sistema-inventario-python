@@ -10,7 +10,7 @@ def modo_caja():
     Módulo de Punto de Venta (POS).
     Permite escanear múltiples productos y generar un ticket de venta.
     """
-    print("\n🛒 --- MODO CAJA (PUNTO DE VENTA) ---")
+    print("\n--- MODO CAJA (PUNTO DE VENTA) ---")
     print("Escanea productos. Escribe 'FIN' para cobrar.")
     
     carrito = [] 
@@ -43,14 +43,14 @@ def modo_caja():
             carrito.append(item)
             total_a_pagar += subtotal
             
-            print(f"   ✅ Agregado. Subtotal acumulado: Gs. {total_a_pagar}")
+            print(f"Agregado. Subtotal acumulado: Gs. {total_a_pagar}")
         else:
-            print("   ❌ Producto no encontrado o sin stock.")
+            print("Producto no encontrado o sin stock.")
 
     # --- MOMENTO DEL COBRO ---
     if len(carrito) > 0:
         print("\n=================================")
-        print(f"💰 TOTAL A PAGAR: Gs. {total_a_pagar}")
+        print(f"TOTAL A PAGAR: Gs. {total_a_pagar}")
         print("=================================")
         confirmacion = input("¿Confirmar venta y descontar stock? (S/N): ")
         
@@ -59,13 +59,13 @@ def modo_caja():
             exito, id_ticket = cerebro.procesar_venta(carrito)
             
             if exito:
-                print(f"\n✅ ¡VENTA REALIZADA! Ticket #{id_ticket} generado.")
+                print(f"\n¡VENTA REALIZADA! Ticket #{id_ticket} generado.")
             else:
-                print("\n❌ Error al guardar la venta en base de datos.")
+                print("\nError al guardar la venta en base de datos.")
         else:
-            print("\n🚫 Venta cancelada.")
+            print("\nVenta cancelada.")
     else:
-        print("\n🚫 Carrito vacío.")
+        print("\nCarrito vacío.")
 
 def iniciar_sistema():
     # Aseguramos que la base de datos exista al arrancar
@@ -74,9 +74,9 @@ def iniciar_sistema():
     while True:
         limpiar_pantalla()
         print("=== SISTEMA DE GESTIÓN COMERCIAL ===")
-        print("1. 📦 Modo Inventario (Cargar Productos)")
-        print("2. 🛒 Modo Caja (Vender)")
-        print("3. 📊 Reporte Financiero del Día")
+        print("1. Modo Inventario (Cargar Productos)")
+        print("2. Modo Caja (Vender)")
+        print("3. Reporte Financiero del Día")
         print("4. Salir")
         
         opcion = input("\nElige una opción: ")
@@ -89,7 +89,7 @@ def iniciar_sistema():
             producto_existente = cerebro.buscar_producto(codigo)
             
             if producto_existente:
-                print(f"⚠️ El producto '{producto_existente['nombre']}' ya existe.")
+                print(f"El producto '{producto_existente['nombre']}' ya existe.")
                 print(f"Stock actual: {producto_existente['stock']}")
                 # Aquí podrías agregar lógica para sumar stock si quisieras
             else:
@@ -106,7 +106,7 @@ def iniciar_sistema():
                     print("\n💾 Producto guardado exitosamente.")
                     
                 except ValueError:
-                    print("\n❌ Error: Los precios y stock deben ser números enteros.")
+                    print("\nError: Los precios y stock deben ser números enteros.")
             
             input("\nEnter para volver...")
             
@@ -118,13 +118,13 @@ def iniciar_sistema():
             # Llamamos a la función de reporte que creamos
             vendido, ganado = cerebro.obtener_reporte_dia()
             
-            print("\n📊 --- REPORTE DE HOY ---")
-            print(f"💰 Ventas Totales:   Gs. {vendido}")
-            print(f"📈 Ganancia Bruta:   Gs. {ganado}")
+            print("\n--- REPORTE DE HOY ---")
+            print(f"Ventas Totales:   Gs. {vendido}")
+            print(f"Ganancia Bruta:   Gs. {ganado}")
             
             if vendido > 0:
                 margen = (ganado / vendido) * 100
-                print(f"✨ Margen de Rentabilidad: {margen:.1f}%")
+                print(f"Margen de Rentabilidad: {margen:.1f}%")
             else:
                 print("No hubo ventas hoy.")
                 

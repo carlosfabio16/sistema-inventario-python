@@ -139,7 +139,7 @@ def procesar_venta(carrito, medio_pago="EFECTIVO"):
 
 def obtener_reporte_dia():
     """Calcula ventas totales y ganancia bruta del día de hoy."""
-    # Nota: Necesitas importar datetime arriba: from datetime import datetime
+    # Nota: Por eso es necesario importar datetime arriba: from datetime import datetime
     conexion = sqlite3.connect(DB_NAME)
     cursor = conexion.cursor()
     
