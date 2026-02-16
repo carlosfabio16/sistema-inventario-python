@@ -1,100 +1,164 @@
-# gestor_inventario.py
+import sqlite3
+from datetime import datetime # Necesario para guardar la fecha de venta
 
-# 1. VARIABLE GLOBAL: Aquí vivirán los datos mientras el programa corre
-inventario_global = {}
+DB_NAME = "sistema_inventario.db"
 
-# 2. DEFINICIÓN DE FUNCIONES
-def buscar_producto(codigo_barras):
-    """
-    Busca un código de barras en el inventario global.
+def iniciar_db():
+    conexion = sqlite3.connect(DB_NAME)
+    cursor = conexion.cursor()
     
-    Args:
-        codigo_barras (str): El código escaneado o escrito.
-        
-    Returns:
-        dict: Los datos del producto si existe.
-        None: Si el producto no existe (devuelve 'Nada').
-    """
-    # .get() es una forma segura de buscar en diccionarios.
-    # Si existe devuelve el dato, si no, devuelve None.
-    resultado = inventario_global.get(codigo_barras)
-    return resultado
-
-def registrar_producto(codigo, nombre, precio, cantidad_inicial):
-    """
-    Crea una nueva entrada en el inventario.
+    # 1. Tabla de PRODUCTOS (Mejorada)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS productos (
+        codigo TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        precio_venta INTEGER,
+        precio_costo INTEGER,    -- Nuevo: Para calcular ganancias
+        stock INTEGER,
+        vencimiento TEXT         -- Nuevo: Fecha formato AAAA-MM-DD
+    )
+    """)
     
-    Args:
-        codigo (str): Identificador único.
-        nombre (str): Descripción del producto.
-        precio (int): Precio de venta.
-        cantidad_inicial (int): Stock inicial.
-        
-    Returns:
-        bool: True si se guardó con éxito, False si ya existía.
+    # 2. Tabla de VENTAS (La Cabecera del ticket)
+    # Guarda: Fecha, Total y Medio de Pago (Efectivo, Tarjeta, QR)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ventas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT,
+        total INTEGER,
+        medio_pago TEXT
+    )
+    """)
+    
+    # 3. Tabla DETALLE_VENTA (El contenido del ticket)
+    # Relaciona qué productos se fueron en qué venta
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS detalle_ventas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_venta INTEGER,
+        codigo_producto TEXT,
+        cantidad INTEGER,
+        subtotal INTEGER,
+        ganancia INTEGER, -- Guardamos cuánto ganamos en este item específico
+        FOREIGN KEY(id_venta) REFERENCES ventas(id)
+    )
+    """)
+    
+    conexion.commit()
+    conexion.close()
+
+def registrar_producto(codigo, nombre, precio_venta, precio_costo, stock, vencimiento):
     """
-    # 1. Validamos si ya existe este código
-    if codigo in inventario_global:
-        # Si existe, NO sobreescribimos. Devolvemos False como error.
+    Registra un producto con datos completos para gestión de inventario.
+    """
+    try:
+        conexion = sqlite3.connect(DB_NAME)
+        cursor = conexion.cursor()
+        cursor.execute("INSERT INTO productos VALUES (?, ?, ?, ?, ?, ?)", 
+                       (codigo, nombre, precio_venta, precio_costo, stock, vencimiento))
+        conexion.commit()
+        conexion.close()
+        return True
+    except sqlite3.IntegrityError:
         return False
 
-    # 2. Creamos el diccionario interno
-    datos_producto = {
-        "nombre": nombre,
-        "precio": precio,
-        "stock": cantidad_inicial
-    }
+def buscar_producto(codigo):
+    conexion = sqlite3.connect(DB_NAME)
+    cursor = conexion.cursor()
+    cursor.execute("SELECT * FROM productos WHERE codigo = ?", (codigo,))
+    resultado = cursor.fetchone()
+    conexion.close()
     
-    # 3. Guardamos en el diccionario mayor
-    inventario_global[codigo] = datos_producto
-    return True # Devolvemos éxito
+    if resultado:
+        return {
+            "codigo": resultado[0],
+            "nombre": resultado[1],
+            "precio_venta": resultado[2],
+            "precio_costo": resultado[3], # Ahora devolvemos el costo también
+            "stock": resultado[4],
+            "vencimiento": resultado[5]
+        }
+    return None
 
-if __name__ == "__main__":
-    print("--- INICIANDO TEST DE LÓGICA ---")
+def procesar_venta(carrito, medio_pago="EFECTIVO"):
+    """
+    Esta es la función CRÍTICA. 
+    1. Resta Stock.
+    2. Guarda el historial de venta para tus reportes futuros.
+    """
+    conexion = sqlite3.connect(DB_NAME)
+    cursor = conexion.cursor()
     
-    # 1. Simulamos registrar un producto
-    exito = registrar_producto("784001", "Galletita Tippy", 5000, 10)
+    try:
+        # A. Calcular el total general
+        total_venta = sum(item['subtotal'] for item in carrito)
+        fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # B. Crear el registro en la tabla VENTAS (El Ticket)
+        cursor.execute("INSERT INTO ventas (fecha, total, medio_pago) VALUES (?, ?, ?)",
+                       (fecha_actual, total_venta, medio_pago))
+        id_ticket = cursor.lastrowid # Obtenemos el ID del ticket recién creado (ej: Ticket #1)
+        
+        # C. Procesar cada producto
+        for item in carrito:
+            codigo = item['codigo']
+            cantidad = item['cantidad']
+            
+            # 1. Obtener datos actuales del producto (necesitamos el costo y stock)
+            cursor.execute("SELECT stock, precio_costo FROM productos WHERE codigo = ?", (codigo,))
+            data_prod = cursor.fetchone()
+            stock_actual = data_prod[0]
+            costo_unitario = data_prod[1]
+            
+            # 2. Verificar Stock (Doble seguridad)
+            if stock_actual < cantidad:
+                raise Exception(f"Stock insuficiente para {item['nombre']}")
+            
+            # 3. Restar Stock
+            nuevo_stock = stock_actual - cantidad
+            cursor.execute("UPDATE productos SET stock = ? WHERE codigo = ?", (nuevo_stock, codigo))
+            
+            # 4. Guardar el DETALLE (para reportes de rotación y ganancia)
+            ganancia_item = item['subtotal'] - (costo_unitario * cantidad)
+            
+            cursor.execute("""
+                INSERT INTO detalle_ventas (id_venta, codigo_producto, cantidad, subtotal, ganancia)
+                VALUES (?, ?, ?, ?, ?)
+            """, (id_ticket, codigo, cantidad, item['subtotal'], ganancia_item))
+            
+        conexion.commit()
+        conexion.close()
+        return True, id_ticket # Devolvemos el número de ticket generado
+        
+    except Exception as e:
+        print(f"ERROR CRÍTICO EN VENTA: {e}")
+        conexion.rollback()
+        conexion.close()
+        return False, 0j
     
-    if exito:
-        print("Prueba 1: Producto registrado correctamente.")
-    else:
-        print("Prueba 1: Falló el registro.")
 
-    # 2. Probemos registrar EL MISMO producto (Debería fallar)
-    exito_duplicado = registrar_producto("784001", "Galletita Tippy", 5000, 10)
+def obtener_reporte_dia():
+    """Calcula ventas totales y ganancia bruta del día de hoy."""
+    # Nota: Necesitas importar datetime arriba: from datetime import datetime
+    conexion = sqlite3.connect(DB_NAME)
+    cursor = conexion.cursor()
     
-    if not exito_duplicado:
-        print("Prueba 2: El sistema evitó duplicados correctamente.")
-    else:
-        print("Prueba 2: Error, el sistema permitió duplicados.")
-        
-    # 3. Probemos buscar
-    producto = buscar_producto("784001")
-    if producto:
-        print(f"Prueba 3: Datos recuperados -> {producto['nombre']} | Precio: {producto['precio']} | Stock: {producto['stock']}")
-        
-def actualizar_stock(codigo, cantidad_entrada):
-    """
-    Suma una cantidad al stock actual de un producto existente.
+    hoy = datetime.now().strftime("%Y-%m-%d") 
     
-    Args:
-        codigo (str): El identificador del producto.
-        cantidad_entrada (int): Cuánto queremos sumar.
-        
-    Returns:
-        int: El nuevo stock total.
-        None: Si el código no existía.
-    """
-    if codigo in inventario_global:
-        # 1. Obtenemos el valor actual
-        stock_actual = inventario_global[codigo]["stock"]
-        
-        # 2. Calculamos el nuevo total
-        nuevo_stock = stock_actual + cantidad_entrada
-        
-        # 3. Guardamos el cambio en la memoria
-        inventario_global[codigo]["stock"] = nuevo_stock
-        
-        return nuevo_stock
-    else:
-        return None
+    # 1. Total Vendido
+    cursor.execute("SELECT sum(total) FROM ventas WHERE fecha LIKE ?", (hoy + '%',))
+    resultado_ventas = cursor.fetchone()[0]
+    total_vendido = resultado_ventas if resultado_ventas else 0
+    
+    # 2. Total Ganancia
+    cursor.execute("""
+        SELECT sum(d.ganancia) 
+        FROM detalle_ventas d
+        JOIN ventas v ON d.id_venta = v.id
+        WHERE v.fecha LIKE ?
+    """, (hoy + '%',))
+    resultado_ganancia = cursor.fetchone()[0]
+    total_ganancia = resultado_ganancia if resultado_ganancia else 0
+    
+    conexion.close()
+    return total_vendido, total_ganancia
