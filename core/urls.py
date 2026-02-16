@@ -16,9 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from inventario.views import saludo  # Importamos tu funcioncita
+from inventario.views import escanear_producto # Importamos la nueva vista
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', saludo),  # Las comillas vacías '' significan "la portada principal"
+    path('', escanear_producto), # Ahora la página principal será el ESCÁNER
 ]

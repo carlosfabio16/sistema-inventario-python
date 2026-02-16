@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import Producto  # Importamos tu clase Producto
 
-# Register your models here.
+# Registramos la tabla para que el Admin la reconozca
+admin.site.register(Producto)

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scanner Web</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; }
+        input { font-size: 20px; padding: 10px; width: 300px; }
+        .resultado { margin-top: 20px; padding: 20px; border: 1px solid #ccc; background: #f9f9f9; }
+        .exito { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Zona de Escaneo</h1>
+    
+    <form method="POST">
+        {% csrf_token %} <input type="text" name="codigo_barras" placeholder="Escanea aquí..." autofocus autocomplete="off">
+    </form>
+
+    {% if mensaje %}
+        <div class="resultado">
+            {% if encontrado %}
+                <h2 class="exito">ENCONTRADO!</h2>
+                <p>Producto: <strong>{{ nombre }}</strong></p>
+                <p>Precio: Gs. {{ precio }}</p>
+                <p>Stock: {{ stock }}</p>
+            {% else %}
+                <h2 class="error">NO EXISTE</h2>
+                <p>El código <strong>{{ codigo }}</strong> es nuevo.</p>
+                <button>Crear Producto Nuevo</button>
+            {% endif %}
+        </div>
+    {% endif %}
+</body>
+</html>
